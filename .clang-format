@@ -1,0 +1,8 @@
+---
+Language: Cpp
+BasedOnStyle: Microsoft
+AccessModifierOffset: -4
+AllowShortFunctionsOnASingleLine: All
+DerivePointerAlignment: false
+SortIncludes: true
+...
