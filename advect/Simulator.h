@@ -8,8 +8,6 @@
 #include <memory>
 #include <vector>
 
-constexpr size_t particleCount = 1000000;
-
 struct vec2
 {
     float x;
@@ -82,6 +80,9 @@ inline vec2 operator/(float rhs, const vec2 &lhs)
     return result /= rhs;
 }
 
+constexpr size_t particleCount = 10000;
+constexpr size_t sqrtCount = 100;
+
 struct SimBuffer
 {
     vec2 position[particleCount];
@@ -99,7 +100,7 @@ public:
 private:
     BufferQueue &bufferQueue;
     uint64_t currentFrame = 0;
-    float dt = 0.003f;
+    float dt = 0.001f;
     std::shared_ptr<SimBuffer> oldBuffer;
     vec2 velocity[particleCount];
     vec2 acceleration[particleCount];
@@ -107,10 +108,11 @@ private:
 
     float boxOrigin = -1.0f;
     float boxSideLen = 2.0f;
-    uint32_t gridSideCount = 512;
+    uint32_t gridSideCount = 128;
     float gridUnitLen = boxSideLen / gridSideCount;
-    float radius = 1.0f / 256.0f;
-    float kCollision = 1.0f;
+    float radius = 1.0f / 256.f;
+    float kCollision = 10.f;
+    float kDamp = 20.f;
 
     std::vector<std::pair<uint32_t, uint32_t>> gridList;
     std::vector<int> cellStart;

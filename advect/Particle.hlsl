@@ -2,7 +2,7 @@ struct VSIn
 {
     float3 position : POSITION;
     float3 normal : NORMAL;
-    float3 instPosition : INSTPOSITION;
+    float2 instPosition : INSTPOSITION;
 };
 
 struct VStoPS
@@ -17,8 +17,9 @@ float4x4 vpMat;
 VStoPS vertexShader(VSIn input)
 {
     VStoPS output;
-    float4 worldPos = mul(float4(input.position, 1), modelMat);
-    worldPos += float4(input.instPosition, 0);
+    float4 worldPos = mul(modelMat, float4(input.position, 1));
+    // worldPos /= worldPos.w;
+    worldPos += float4(input.instPosition, 0, 0);
     output.position = mul(vpMat, worldPos);
     output.normal = input.normal;
     return output;

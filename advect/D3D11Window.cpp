@@ -3,9 +3,12 @@
 // license that can be found in the LICENSE file.
 
 #include "App.h"
+#include "BufferQueue.h"
+#include "Camera.h"
 #include "Renderer.h"
 #include <d3d11_1.h>
 #include <d3dcompiler.h>
+#include <glm\gtc\type_ptr.hpp>
 #include <imgui.h>
 #include <imgui_impl_dx11.h>
 #include <imgui_impl_win32.h>
@@ -63,6 +66,8 @@ ID3D11Buffer *g_pIndexBuffer = nullptr;
 ID3D11RasterizerState *g_pRastState = nullptr;
 ID3D11DepthStencilState *g_pDepthStencilState = nullptr;
 ID3D11BlendState *g_pBlendState = nullptr;
+Camera g_camera{{0.f, 0.f, 0.f}, {0.f, 0.f, 1.0f}};
+uint32_t g_instanceCount = 0;
 
 // Ideally we should generate this automatically from some reflection tool
 class ParticleParameterSet
@@ -136,8 +141,26 @@ void CleanupDevice();
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 void Render();
 
+void Renderer::onAcquireBuffer(std::shared_ptr<const SimBuffer> buffer)
+{
+    printf("Begin renderer\n");
+    while (!g_pd3dDevice1)
+        ;
+    UINT sz = sizeof(buffer->position);
+    D3D11_BUFFER_DESC bufferDesc = {sz, D3D11_USAGE_DEFAULT, D3D11_BIND_VERTEX_BUFFER, 0, 0, 0};
+    D3D11_SUBRESOURCE_DATA initialData = {buffer->position, 0, 0};
+    auto *oldBuffer = g_pVertexBuffer3;
+    g_pd3dDevice1->CreateBuffer(&bufferDesc, &initialData, &g_pVertexBuffer3);
+    g_instanceCount = particleCount;
+    if (oldBuffer)
+        oldBuffer->Release();
+    printf("End renderer\n");
+    bufferQueue.releaseBuffer(buffer);
+}
+
 int Renderer::renderThreadLoop()
 {
+    g_camera.TestProjection();
     SetProcessDPIAware();
 
     if (FAILED(InitWindow(GetModuleHandle(NULL), SW_SHOWNORMAL)))
@@ -444,7 +467,7 @@ HRESULT InitDevice()
     D3D11_INPUT_ELEMENT_DESC desc[] = {
         {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
         {"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 1, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
-        {"INSTPOSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 2, 0, D3D11_INPUT_PER_INSTANCE_DATA, 1}};
+        {"INSTPOSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 2, 0, D3D11_INPUT_PER_INSTANCE_DATA, 1}};
     g_pd3dDevice->CreateInputLayout(desc, 3, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &g_pVertexLayout);
 
     // Create state blocks
@@ -476,18 +499,13 @@ HRESULT InitDevice()
     g_pParticleParameterSet = new ParticleParameterSet;
 
     // Buffers
-    const float originData[] = {0.0f, 0.0f, 0.0f};
+    const float originData[] = {-3.141592653589793f, -1.2246467991473532e-16f};
     {
         D3D11_BUFFER_DESC bufferDesc = {sizeof(vertexData), D3D11_USAGE_DEFAULT, D3D11_BIND_VERTEX_BUFFER, 0, 0, 0};
         D3D11_SUBRESOURCE_DATA initialData = {vertexData, 0, 0};
         g_pd3dDevice1->CreateBuffer(&bufferDesc, &initialData, &g_pVertexBuffer);
         g_pVertexBuffer->AddRef();
         g_pVertexBuffer2 = g_pVertexBuffer;
-    }
-    {
-        D3D11_BUFFER_DESC bufferDesc = {sizeof(originData), D3D11_USAGE_DEFAULT, D3D11_BIND_VERTEX_BUFFER, 0, 0, 0};
-        D3D11_SUBRESOURCE_DATA initialData = {originData, 0, 0};
-        g_pd3dDevice1->CreateBuffer(&bufferDesc, &initialData, &g_pVertexBuffer3);
     }
     {
         D3D11_BUFFER_DESC bufferDesc = {sizeof(indexData), D3D11_USAGE_DEFAULT, D3D11_BIND_INDEX_BUFFER, 0, 0, 0};
@@ -555,6 +573,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     PAINTSTRUCT ps;
     HDC hdc;
+    static bool orbitting = false;
+    static short xPos, yPos;
+    static short xPos2, yPos2;
 
     switch (message)
     {
@@ -565,6 +586,26 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     case WM_DESTROY:
         PostQuitMessage(0);
+        break;
+
+    case WM_LBUTTONDOWN:
+        orbitting = true;
+        break;
+
+    case WM_LBUTTONUP:
+        orbitting = false;
+        break;
+
+    case WM_MOUSEMOVE:
+        xPos2 = LOWORD(lParam);
+        yPos2 = HIWORD(lParam);
+        if (wParam & MK_LBUTTON)
+        {
+            g_camera.Orbit(Camera::EDir::Right, (xPos2 - xPos) * 0.01f);
+            g_camera.Orbit(Camera::EDir::Down, (yPos2 - yPos) * 0.01f);
+        }
+        xPos = xPos2;
+        yPos = yPos2;
         break;
 
     default:
@@ -585,14 +626,21 @@ void Render()
     g_pImmediateContext->OMSetRenderTargets(1, &g_pRenderTargetView, NULL);
 
     // Render a triangle
-    const float identity[] = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
-                              0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
-    g_pParticleParameterSet->setModelMat(identity);
-    g_pParticleParameterSet->setVpMat(identity);
+    const float kScale = 1.0f / 256.f;
+    const float scale[] = {kScale, 0.0f, 0.0f,   0.0f, 0.0f, kScale, 0.0f, 0.0f,
+                           0.0f,   0.0f, kScale, 0.0f, 0.0f, 0.0f,   0.0f, 1.0f};
+
+    auto test = g_camera.GetViewMatrix() * glm::vec4(2.0f, 0.0f, 0.0f, 1.0f);
+    auto projMat = g_camera.MakeProjection(90.f / 3.141592654f * 180.f, 800.f / 600.f, 0.1f, 10.f);
+    auto test2 = projMat * test;
+    test2 /= test2.w;
+    auto vpMat = projMat * g_camera.GetViewMatrix();
+    g_pParticleParameterSet->setModelMat(scale);
+    g_pParticleParameterSet->setVpMat(glm::value_ptr(vpMat));
     g_pParticleParameterSet->commit();
 
     ID3D11Buffer *const buffers[] = {g_pVertexBuffer, g_pVertexBuffer2, g_pVertexBuffer3};
-    const UINT strides[] = {sizeof(float) * 3, sizeof(float) * 3, sizeof(float) * 3};
+    const UINT strides[] = {sizeof(float) * 3, sizeof(float) * 3, sizeof(float) * 2};
     const UINT offsets[] = {0, 0, 0};
     g_pImmediateContext->IASetVertexBuffers(0, 3, buffers, strides, offsets);
     g_pImmediateContext->IASetIndexBuffer(g_pIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
@@ -604,7 +652,7 @@ void Render()
     g_pImmediateContext->RSSetState(g_pRastState);
     g_pImmediateContext->OMSetDepthStencilState(g_pDepthStencilState, 0);
     g_pImmediateContext->OMSetBlendState(g_pBlendState, nullptr, 0xffffffff);
-    g_pImmediateContext->DrawIndexedInstanced(indexCount, 1, 0, 0, 0);
+    g_pImmediateContext->DrawIndexedInstanced(indexCount, g_instanceCount, 0, 0, 0);
 
     // Render imgui
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());

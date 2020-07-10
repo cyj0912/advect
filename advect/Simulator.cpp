@@ -21,20 +21,20 @@ void Simulator::onDequeueBuffer(std::shared_ptr<SimBuffer> newBuffer)
     if (currentFrame == 0)
     {
         gridList.resize(particleCount);
-        for (int i = 0; i < 1000; i++)
-            for (int j = 0; j < 1000; j++)
-                newBuffer->position[i * 1000 + j] = {2.0f / 1000.0f * j - 0.95f, 2.0f / 1000.0f * i - 0.95f};
+        for (int i = 0; i < sqrtCount; i++)
+            for (int j = 0; j < sqrtCount; j++)
+                newBuffer->position[i * sqrtCount + j] = {boxSideLen / sqrtCount * j + boxOrigin,
+                                                          boxSideLen / sqrtCount * i + boxOrigin};
         memset(velocity, 0, sizeof(velocity));
     }
     else
     {
         for (int i = 0; i < particleCount; i++)
         {
-            vec2 force = vec2{0.0f, -9.8f};
-            acceleration[i] = force / mass;
+            acceleration[i] += vec2{0.0f, -9.8f};
             vec2 &newPos = newBuffer->position[i];
-            newPos = oldBuffer->position[i] + velocity[i] * dt + 0.5f * acceleration[i] * dt * dt;
-            velocity[i] = velocity[i] + acceleration[i] * dt;
+            newPos = oldBuffer->position[i] + velocity[i] * dt + 0.5f * acceleration[1] * dt * dt;
+            velocity[i] = velocity[i] + acceleration[1] * dt;
 
             // Check outside boundary
             if (newPos.x > 1.0f)
@@ -72,6 +72,7 @@ void Simulator::onDequeueBuffer(std::shared_ptr<SimBuffer> newBuffer)
         float colAvg = 0.0f;
         for (int i = 0; i < particleCount; i++)
         {
+            acceleration[i] = vec2{0.0f, 0.0f};
             int perfCount = 0;
             int colCount = 0;
             vec2 pos = newBuffer->position[i];
@@ -97,15 +98,18 @@ void Simulator::onDequeueBuffer(std::shared_ptr<SimBuffer> newBuffer)
                         float dist = atMe.length();
                         if (dist == 0.0f)
                             continue;
-                        colCount++;
                         if (dist < radius * 2.0f)
-                            velocity[i] += kCollision * atMe / dist;
+                        {
+                            colCount++;
+                            acceleration[i] += kCollision * atMe / dist / dist;
+                        }
                     }
                 }
+            // Apply damping
+            acceleration[i] -= (velocity[i] + acceleration[i] * dt) * kDamp;
             perfAvg += perfCount / (float)particleCount;
             colAvg += colCount / (float)particleCount;
         }
-        printf("%f %f\n", newBuffer->position[1934].x, newBuffer->position[1934].y);
         printf("%f %f\n", perfAvg, colAvg);
     }
     oldBuffer = newBuffer;
