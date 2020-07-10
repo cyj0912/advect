@@ -12,5 +12,9 @@ add_library(imgui ${IMGUI_SOURCES} ${IMGUI_IMPL_SRC})
 target_include_directories(imgui PUBLIC ./imgui)
 target_include_directories(imgui PUBLIC ./imgui/examples)
 
+# Add glm here
+add_library(glm INTERFACE)
+target_include_directories(glm INTERFACE ./glm)
+
 # Include sub-projects.
 add_subdirectory ("advect")
