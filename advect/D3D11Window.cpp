@@ -7,6 +7,34 @@
 #include <imgui_impl_win32.h>
 #include <windows.h>
 
+// Predefined data
+const float vertexData[] = {
+    0.000000f,  0.866025f,  -0.500000f, 0.000000f,  -0.500000f, -0.866025f, -0.000000f, 1.000000f,  -0.000000f,
+    0.353553f,  0.866025f,  -0.353553f, 0.612372f,  0.500000f,  -0.612373f, 0.707107f,  -0.000000f, -0.707107f,
+    0.612372f,  -0.500000f, -0.612372f, 0.353553f,  -0.866025f, -0.353553f, 0.500000f,  0.866025f,  -0.000000f,
+    0.866025f,  0.500000f,  -0.000000f, 1.000000f,  -0.000000f, -0.000000f, 0.866025f,  -0.500000f, -0.000000f,
+    0.500000f,  -0.866025f, -0.000000f, 0.353553f,  0.866025f,  0.353553f,  0.612372f,  0.500000f,  0.612372f,
+    0.707107f,  -0.000000f, 0.707106f,  0.612372f,  -0.500000f, 0.612372f,  0.353553f,  -0.866025f, 0.353553f,
+    0.000000f,  -1.000000f, -0.000000f, -0.000000f, 0.866025f,  0.500000f,  0.000000f,  0.500000f,  0.866025f,
+    0.000000f,  -0.000000f, 1.000000f,  0.000000f,  -0.500000f, 0.866025f,  -0.000000f, -0.866025f, 0.500000f,
+    -0.353553f, 0.866025f,  0.353553f,  -0.612372f, 0.500000f,  0.612372f,  -0.707107f, -0.000000f, 0.707106f,
+    -0.612372f, -0.500000f, 0.612372f,  -0.353553f, -0.866025f, 0.353553f,  -0.500000f, 0.866025f,  -0.000000f,
+    -0.866025f, 0.500000f,  -0.000000f, -1.000000f, -0.000000f, -0.000000f, -0.866025f, -0.500000f, -0.000000f,
+    -0.500000f, -0.866025f, -0.000000f, -0.353553f, 0.866025f,  -0.353553f, -0.612372f, 0.500000f,  -0.612372f,
+    -0.707107f, -0.000000f, -0.707107f, -0.612372f, -0.500000f, -0.612372f, -0.353553f, -0.866025f, -0.353553f,
+    -0.000000f, 0.500000f,  -0.866025f, 0.000000f,  -0.000000f, -1.000000f, -0.000000f, -0.866025f, -0.500000f};
+const uint16_t indexData[] = {
+    0,  4,  39, 41, 6,  7,  39, 5,  40, 0,  2,  3,  18, 41, 7,  40, 6,  1,  6,  12, 7,  4,  10, 5,  3,  2,  8,
+    18, 7,  12, 5,  11, 6,  3,  9,  4,  11, 17, 12, 10, 14, 15, 8,  2,  13, 18, 12, 17, 10, 16, 11, 8,  14, 9,
+    14, 21, 15, 13, 2,  19, 18, 17, 23, 15, 22, 16, 13, 20, 14, 16, 23, 17, 19, 2,  24, 18, 23, 28, 22, 26, 27,
+    19, 25, 20, 22, 28, 23, 21, 25, 26, 18, 28, 33, 26, 32, 27, 24, 30, 25, 27, 33, 28, 25, 31, 26, 24, 2,  29,
+    18, 33, 38, 31, 37, 32, 29, 35, 30, 32, 38, 33, 30, 36, 31, 29, 2,  34, 18, 38, 41, 36, 1,  37, 34, 39, 35,
+    38, 1,  41, 35, 40, 36, 34, 2,  0,  0,  3,  4,  41, 1,  6,  39, 4,  5,  40, 5,  6,  6,  11, 12, 4,  9,  10,
+    5,  10, 11, 3,  8,  9,  11, 16, 17, 10, 9,  14, 10, 15, 16, 8,  13, 14, 14, 20, 21, 15, 21, 22, 13, 19, 20,
+    16, 22, 23, 22, 21, 26, 19, 24, 25, 22, 27, 28, 21, 20, 25, 26, 31, 32, 24, 29, 30, 27, 32, 33, 25, 30, 31,
+    31, 36, 37, 29, 34, 35, 32, 37, 38, 30, 35, 36, 36, 40, 1,  34, 0,  39, 38, 37, 1,  35, 39, 40};
+const uint32_t indexCount = 240;
+
 //--------------------------------------------------------------------------------------
 // Global Variables
 //--------------------------------------------------------------------------------------
@@ -25,6 +53,75 @@ ID3D11VertexShader *g_pVertexShader = nullptr;
 ID3D11PixelShader *g_pPixelShader = nullptr;
 ID3D11InputLayout *g_pVertexLayout = nullptr;
 ID3D11Buffer *g_pVertexBuffer = nullptr;
+ID3D11Buffer *g_pVertexBuffer2 = nullptr;
+ID3D11Buffer *g_pVertexBuffer3 = nullptr;
+ID3D11Buffer *g_pIndexBuffer = nullptr;
+ID3D11RasterizerState *g_pRastState = nullptr;
+ID3D11DepthStencilState *g_pDepthStencilState = nullptr;
+ID3D11BlendState *g_pBlendState = nullptr;
+
+// Ideally we should generate this automatically from some reflection tool
+class ParticleParameterSet
+{
+public:
+    // Like a descriptor set, but more human friendly
+    ParticleParameterSet()
+    {
+        const UINT reflectedGlobalCBSize = sizeof(float) * 16 * 2;
+        D3D11_BUFFER_DESC desc = {
+            reflectedGlobalCBSize, D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE, 0, 0};
+        g_pd3dDevice->CreateBuffer(&desc, nullptr, &globalCB);
+    }
+
+    ParticleParameterSet(const ParticleParameterSet &) = delete;
+    ParticleParameterSet &operator=(const ParticleParameterSet &) = delete;
+    ~ParticleParameterSet() { globalCB->Release(); }
+
+    void bindAsOnlySet(ID3D11DeviceContext *ctx)
+    {
+        commit();
+        ctx->VSSetConstantBuffers(0, 1, &globalCB);
+    }
+
+    void setModelMat(const void *data)
+    {
+        if (!globalCBMapped)
+        {
+            D3D11_MAPPED_SUBRESOURCE mapped;
+            g_pImmediateContext->Map(globalCB, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+            globalCBMapped = mapped.pData;
+        }
+        auto *dest = static_cast<char *>(globalCBMapped);
+        memcpy(dest, data, sizeof(float) * 16);
+    }
+
+    void setVpMat(const void *data)
+    {
+        if (!globalCBMapped)
+        {
+            D3D11_MAPPED_SUBRESOURCE mapped;
+            g_pImmediateContext->Map(globalCB, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+            globalCBMapped = mapped.pData;
+        }
+        auto *dest = static_cast<char *>(globalCBMapped);
+        memcpy(dest + sizeof(float) * 16, data, sizeof(float) * 16);
+    }
+
+    void commit()
+    {
+        if (globalCBMapped)
+        {
+            g_pImmediateContext->Unmap(globalCB, 0);
+            globalCBMapped = false;
+        }
+    }
+
+private:
+    ID3D11Buffer *globalCB;
+    void *globalCBMapped = nullptr;
+};
+
+ParticleParameterSet *g_pParticleParameterSet;
 
 //--------------------------------------------------------------------------------------
 // Forward declarations
@@ -37,6 +134,8 @@ void Render();
 
 int Renderer::renderThreadLoop()
 {
+    SetProcessDPIAware();
+
     if (FAILED(InitWindow(GetModuleHandle(NULL), SW_SHOWNORMAL)))
         return 0;
 
@@ -320,8 +419,6 @@ HRESULT InitDevice()
     if (FAILED(hr))
         return hr;
 
-    g_pImmediateContext->OMSetRenderTargets(1, &g_pRenderTargetView, nullptr);
-
     // Setup the viewport
     D3D11_VIEWPORT vp;
     vp.Width = (FLOAT)width;
@@ -332,8 +429,67 @@ HRESULT InitDevice()
     vp.TopLeftY = 0;
     g_pImmediateContext->RSSetViewports(1, &vp);
 
-    // Set primitive topology
-    g_pImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    // Prepare shaders
+    ID3DBlob *vsBlob, *psBlob;
+    CompileShaderFromFile(L"Particle.hlsl", "vertexShader", "vs_5_0", &vsBlob);
+    CompileShaderFromFile(L"Particle.hlsl", "pixelShader", "ps_5_0", &psBlob);
+    g_pd3dDevice->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &g_pVertexShader);
+    g_pd3dDevice->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &g_pPixelShader);
+
+    // Create InputLayout
+    D3D11_INPUT_ELEMENT_DESC desc[] = {
+        {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+        {"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 1, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+        {"INSTPOSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 2, 0, D3D11_INPUT_PER_INSTANCE_DATA, 1}};
+    g_pd3dDevice->CreateInputLayout(desc, 3, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &g_pVertexLayout);
+
+    // Create state blocks
+    D3D11_RASTERIZER_DESC rasterizerDesc = {
+        D3D11_FILL_SOLID, D3D11_CULL_NONE, TRUE, 0, 0.0f, 0.0f, FALSE, FALSE, FALSE, FALSE};
+    g_pd3dDevice->CreateRasterizerState(&rasterizerDesc, &g_pRastState);
+
+    D3D11_DEPTH_STENCIL_DESC depthStencilDesc;
+    depthStencilDesc.DepthEnable = true;
+    depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+    depthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS;
+
+    depthStencilDesc.StencilEnable = false;
+    depthStencilDesc.StencilReadMask = 0xFF;
+    depthStencilDesc.StencilWriteMask = 0xFF;
+
+    depthStencilDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+    depthStencilDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+    depthStencilDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+    depthStencilDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+
+    depthStencilDesc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+    depthStencilDesc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+    depthStencilDesc.BackFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+    depthStencilDesc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+    g_pd3dDevice->CreateDepthStencilState(&depthStencilDesc, &g_pDepthStencilState);
+
+    // Create and manage shader parameters
+    g_pParticleParameterSet = new ParticleParameterSet;
+
+    // Buffers
+    const float originData[] = {0.0f, 0.0f, 0.0f};
+    {
+        D3D11_BUFFER_DESC bufferDesc = {sizeof(vertexData), D3D11_USAGE_DEFAULT, D3D11_BIND_VERTEX_BUFFER, 0, 0, 0};
+        D3D11_SUBRESOURCE_DATA initialData = {vertexData, 0, 0};
+        g_pd3dDevice1->CreateBuffer(&bufferDesc, &initialData, &g_pVertexBuffer);
+        g_pVertexBuffer->AddRef();
+        g_pVertexBuffer2 = g_pVertexBuffer;
+    }
+    {
+        D3D11_BUFFER_DESC bufferDesc = {sizeof(originData), D3D11_USAGE_DEFAULT, D3D11_BIND_VERTEX_BUFFER, 0, 0, 0};
+        D3D11_SUBRESOURCE_DATA initialData = {originData, 0, 0};
+        g_pd3dDevice1->CreateBuffer(&bufferDesc, &initialData, &g_pVertexBuffer3);
+    }
+    {
+        D3D11_BUFFER_DESC bufferDesc = {sizeof(indexData), D3D11_USAGE_DEFAULT, D3D11_BIND_INDEX_BUFFER, 0, 0, 0};
+        D3D11_SUBRESOURCE_DATA initialData = {indexData, 0, 0};
+        g_pd3dDevice1->CreateBuffer(&bufferDesc, &initialData, &g_pIndexBuffer);
+    }
 
     return S_OK;
 }
@@ -346,8 +502,22 @@ void CleanupDevice()
     if (g_pImmediateContext)
         g_pImmediateContext->ClearState();
 
+    if (g_pParticleParameterSet)
+        delete g_pParticleParameterSet;
+    if (g_pRastState)
+        g_pRastState->Release();
+    if (g_pDepthStencilState)
+        g_pDepthStencilState->Release();
+    if (g_pBlendState)
+        g_pBlendState->Release();
     if (g_pVertexBuffer)
         g_pVertexBuffer->Release();
+    if (g_pVertexBuffer2)
+        g_pVertexBuffer2->Release();
+    if (g_pVertexBuffer3)
+        g_pVertexBuffer3->Release();
+    if (g_pIndexBuffer)
+        g_pIndexBuffer->Release();
     if (g_pVertexLayout)
         g_pVertexLayout->Release();
     if (g_pVertexShader)
@@ -408,14 +578,31 @@ void Render()
     // Clear the back buffer
     const float clearColor[] = {0.2f, 0.2f, 0.2f, 0.0f};
     g_pImmediateContext->ClearRenderTargetView(g_pRenderTargetView, clearColor);
+    g_pImmediateContext->OMSetRenderTargets(1, &g_pRenderTargetView, NULL);
 
     // Render a triangle
+    const float identity[] = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+                              0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
+    g_pParticleParameterSet->setModelMat(identity);
+    g_pParticleParameterSet->setVpMat(identity);
+    g_pParticleParameterSet->commit();
+
+    ID3D11Buffer *const buffers[] = {g_pVertexBuffer, g_pVertexBuffer2, g_pVertexBuffer3};
+    const UINT strides[] = {sizeof(float) * 3, sizeof(float) * 3, sizeof(float) * 3};
+    const UINT offsets[] = {0, 0, 0};
+    g_pImmediateContext->IASetVertexBuffers(0, 3, buffers, strides, offsets);
+    g_pImmediateContext->IASetIndexBuffer(g_pIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
+    g_pImmediateContext->IASetInputLayout(g_pVertexLayout);
+    g_pImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     g_pImmediateContext->VSSetShader(g_pVertexShader, nullptr, 0);
     g_pImmediateContext->PSSetShader(g_pPixelShader, nullptr, 0);
-    g_pImmediateContext->Draw(3, 0);
+    g_pParticleParameterSet->bindAsOnlySet(g_pImmediateContext);
+    g_pImmediateContext->RSSetState(g_pRastState);
+    g_pImmediateContext->OMSetDepthStencilState(g_pDepthStencilState, 0);
+    g_pImmediateContext->OMSetBlendState(g_pBlendState, nullptr, 0xffffffff);
+    g_pImmediateContext->DrawIndexedInstanced(indexCount, 1, 0, 0, 0);
 
     // Render imgui
-    g_pImmediateContext->OMSetRenderTargets(1, &g_pRenderTargetView, NULL);
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 
     // Present the information rendered to the back buffer to the front buffer (the screen)
