@@ -144,13 +144,17 @@ void Render();
 void Renderer::onAcquireBuffer(std::shared_ptr<const SimBuffer> buffer)
 {
     printf("Begin renderer\n");
-    while (!g_pd3dDevice1)
-        ;
+    if (!g_pd3dDevice)
+    {
+        printf("Throwing away buffer\n");
+        bufferQueue.releaseBuffer(buffer);
+        return;
+    }
     UINT sz = sizeof(buffer->position);
     D3D11_BUFFER_DESC bufferDesc = {sz, D3D11_USAGE_DEFAULT, D3D11_BIND_VERTEX_BUFFER, 0, 0, 0};
     D3D11_SUBRESOURCE_DATA initialData = {buffer->position, 0, 0};
     auto *oldBuffer = g_pVertexBuffer3;
-    g_pd3dDevice1->CreateBuffer(&bufferDesc, &initialData, &g_pVertexBuffer3);
+    g_pd3dDevice->CreateBuffer(&bufferDesc, &initialData, &g_pVertexBuffer3);
     g_instanceCount = particleCount;
     if (oldBuffer)
         oldBuffer->Release();
