@@ -5,6 +5,7 @@
 #include "Simulator.h"
 #include "BufferQueue.h"
 #include <algorithm>
+#include <cstring>
 
 void Simulator::onDequeueBuffer(std::shared_ptr<SimBuffer> newBuffer)
 {

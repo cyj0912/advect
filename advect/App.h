@@ -8,6 +8,7 @@
 #include <atomic>
 #include <cassert>
 #include <chrono>
+#include <condition_variable>
 #include <cstdint>
 #include <deque>
 #include <functional>
@@ -26,7 +27,7 @@ public:
 class ExclusionGroup
 {
     friend class App;
-    std::atomic_int atomicCounter = 0;
+    std::atomic_int atomicCounter{0};
 };
 
 // An App with a simple but not naive scheduler
