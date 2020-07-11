@@ -160,9 +160,8 @@ void Renderer::onAcquireBuffer(std::shared_ptr<const SimBuffer> buffer)
 
 int Renderer::renderThreadLoop()
 {
-    g_camera.TestProjection();
-    SetProcessDPIAware();
-
+    auto profThread = globalProfiler.makeThreadData("window");
+    profThread->beginEvent("init", ProfilerColor::DefaultBlue);
     if (FAILED(InitWindow(GetModuleHandle(NULL), SW_SHOWNORMAL)))
         return 0;
 
@@ -187,6 +186,7 @@ int Renderer::renderThreadLoop()
     // Setup Platform/Renderer bindings
     ImGui_ImplWin32_Init(g_hWnd);
     ImGui_ImplDX11_Init(g_pd3dDevice, g_pImmediateContext);
+    profThread->endEvent("init");
 
     // Main message loop
     MSG msg = {0};
@@ -201,6 +201,7 @@ int Renderer::renderThreadLoop()
         }
         else
         {
+            profThread->beginEvent("draw", ProfilerColor::DefaultBlue);
             // Start the Dear ImGui frame
             ImGui_ImplDX11_NewFrame();
             ImGui_ImplWin32_NewFrame();
@@ -208,16 +209,14 @@ int Renderer::renderThreadLoop()
 
             ImGui::ShowDemoWindow();
 
-            ImGui::Begin("Task Profiler");
-            int refreshInterval = 1;
-            ImGui::DragInt("Refresh interval", &refreshInterval);
-            ImGui::Text("Worker0");
-            ImGui::Text("Worker1");
-            ImGui::Text("D3D11Window");
-            ImGui::End();
+            globalProfiler.drawImGui();
 
             ImGui::Render();
             Render();
+            profThread->endEvent("draw");
+            // Don't count vsync into draw
+            // Present the information rendered to the back buffer to the front buffer (the screen)
+            g_pSwapChain->Present(1, 0);
         }
     }
 
@@ -656,7 +655,4 @@ void Render()
 
     // Render imgui
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-
-    // Present the information rendered to the back buffer to the front buffer (the screen)
-    g_pSwapChain->Present(1, 0);
 }
