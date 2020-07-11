@@ -5,6 +5,7 @@
  */
 
 #pragma once
+#include "Profiler.h"
 #include <atomic>
 #include <cassert>
 #include <chrono>
@@ -16,6 +17,8 @@
 #include <memory>
 #include <mutex>
 #include <thread>
+
+extern Profiler globalProfiler;
 
 class IWorkItem
 {

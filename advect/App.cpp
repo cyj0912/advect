@@ -5,15 +5,22 @@
 #include "App.h"
 #include <iostream>
 
+Profiler globalProfiler;
+
 int App::run()
 {
     if (!setup())
         return -1;
     // So conceptually, we are gonna have 1 or 2 worker threads. Two tasks, simulator and renderer, each has an input
     // queue associated. Both queues combined is call a BufferQueue
-    std::thread th1(&App::workerThreadLoop, this, 1);
+    std::vector<std::thread> workers;
+    for (int i = 1; i < 3; i++)
+    {
+        workers.push_back(std::thread([this, i]() { workerThreadLoop(i); }));
+    }
     workerThreadLoop(0);
-    th1.join();
+    for (auto &thread : workers)
+        thread.join();
     size_t outstanding = 0;
     outstanding += readyQueue.size();
     outstanding += exclusiveQueue.size();
@@ -24,20 +31,17 @@ int App::run()
 void App::workerThreadLoop(int workerId)
 {
     using namespace std::chrono_literals;
+    std::string idStr = std::to_string(workerId);
+    auto profThread = globalProfiler.makeThreadData("worker" + idStr);
     while (true)
     {
         std::unique_lock<std::mutex> lk(workQueueMutex);
         std::shared_ptr<IWorkItem> workItem;
+        std::string taskSym = "w";
         do
         {
             if (quitting)
                 return;
-            if (!readyQueue.empty())
-            {
-                workItem = std::move(readyQueue.front());
-                readyQueue.pop_front();
-                break;
-            }
             for (auto iter = exclusiveQueue.begin(); iter != exclusiveQueue.end(); ++iter)
             {
                 auto &workPtr = *iter;
@@ -49,6 +53,12 @@ void App::workerThreadLoop(int workerId)
                     break;
                 }
             }
+            if (!readyQueue.empty())
+            {
+                workItem = std::move(readyQueue.front());
+                readyQueue.pop_front();
+                break;
+            }
             // Invariant: only reach here when no useful work can be done
             workQueueWaitList.wait_for(lk, 10ms);
             if (quitting)
@@ -56,6 +66,8 @@ void App::workerThreadLoop(int workerId)
         } while (true);
         lk.unlock();
 
+        profThread->beginEvent(taskSym, ProfilerColor::DefaultBlue);
         workItem->doWork();
+        profThread->endEvent(taskSym);
     }
 }
