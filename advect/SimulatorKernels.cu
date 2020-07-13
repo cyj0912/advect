@@ -28,14 +28,16 @@ __global__ void integrateOneParticle(vec2 *newPos, vec2 *oldPos, vec2 *v, vec2 *
     accel.y -= 9.8;
     v[index] = v[index] + accel * dt;
     newPos[index] = oldPos[index] + v[index] * dt;
+
+    float rdm = (index % 100) / 100.f * radius + radius;
     if (newPos[index].x > 1.0f)
-        newPos[index].x = 1.0f;
+        newPos[index].x = 1.0f - rdm;
     if (newPos[index].x < -1.0f)
-        newPos[index].x = -1.0f;
+        newPos[index].x = -1.0f + rdm;
     if (newPos[index].y > 1.0f)
-        newPos[index].y = 1.0f;
+        newPos[index].y = 1.0f - rdm;
     if (newPos[index].y < -1.0f)
-        newPos[index].y = -1.0f;
+        newPos[index].y = -1.0f + rdm;
 }
 
 __global__ void calcGridHash(unsigned int *gridHash, unsigned int *particleIndex, vec2 *newPos)
@@ -64,18 +66,35 @@ __global__ void findStart(unsigned int *gridStart, unsigned int *gridHash, unsig
         gridStart[gridHash[0]] = 0;
 }
 
-__global__ void doCollision(unsigned int *gridStart, unsigned int gridHash, unsigned int *gridParticle, vec2 *p,
+__global__ void doCollision(unsigned int *gridStart, unsigned int *gridHash, unsigned int *gridParticle, vec2 *p,
                             vec2 *v, vec2 *a)
 {
-    int index = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int index = blockDim.x * blockIdx.x + threadIdx.x;
     if (index >= particleCount)
         return;
+
     int2 gridPos;
-    gridPos.x = floor((newPos[index].x - boxOrigin) / gridUnitLen);
-    gridPos.y = floor((newPos[index].y - boxOrigin) / gridUnitLen);
-    gridPos.x = gridPos.x & (gridSideCount - 1);
-    gridPos.y = gridPos.y & (gridSideCount - 1);
-    unsigned int gh = gridPos.y * gridSideCount + gridPos.x;
+    gridPos.x = floor((p[index].x - boxOrigin) / gridUnitLen);
+    gridPos.y = floor((p[index].y - boxOrigin) / gridUnitLen);
+    a[index] = {0.0f, 0.0f};
+    for (int xOff = -1; xOff <= 1; xOff++)
+        for (int yOff = -1; yOff < 1; yOff++)
+        {
+            int x2 = gridPos.x + xOff;
+            int y2 = gridPos.y + yOff;
+            x2 = x2 & (gridSideCount - 1);
+            y2 = y2 & (gridSideCount - 1);
+            unsigned int gh = gridPos.y * gridSideCount + gridPos.x;
+            int j = gridStart[gh];
+            for (; j < particleCount && gridHash[j] == gh; j++)
+            {
+                unsigned int jj = gridParticle[j];
+                if (jj == index)
+                    continue;
+                auto force = collidePair(p[index], p[jj], v[index], v[jj], radius, radius, 0.4f);
+                a[index] += force / mass;
+            }
+        }
 }
 
 void setup()
@@ -114,5 +133,7 @@ void simulationStep(vec2 *devNewPos, vec2 *devOldPos)
         calcGridHash<<<blkCnt, blockSz>>>(arrGridHash, arrGridParticle, devNewPos);
         thrust::sort_by_key(devGridHash, devGridHash + particleCount, devGridParticle);
         findStart<<<blkCnt, blockSz>>>(gridFirstParticle, arrGridHash, arrGridParticle);
+        doCollision<<<blkCnt, blockSz>>>(gridFirstParticle, arrGridHash, arrGridParticle, devNewPos, velocity,
+                                         acceleration);
     }
 }

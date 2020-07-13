@@ -51,7 +51,7 @@ struct vec2
 
     __host__ __device__ float length() { return sqrtf(x * x + y * y); }
 
-    float dot(const vec2 &other) { return x * other.x + y * other.y; }
+    __host__ __device__ float dot(const vec2 &other) { return x * other.x + y * other.y; }
 };
 
 __host__ __device__ inline vec2 operator+(const vec2 &lhs, const vec2 &rhs)
@@ -99,7 +99,7 @@ constexpr float boxOrigin = -1.0f;
 constexpr float boxSideLen = 2.0f;
 constexpr uint32_t gridSideCount = 128;
 constexpr float gridUnitLen = boxSideLen / gridSideCount;
-constexpr float radius = 1.0f / 256.f;
+constexpr float radius = 1.0f / 256.f * 5.0f;
 constexpr float kCollision = 10.f;
 constexpr float kDamp = 20.f;
 
@@ -109,7 +109,8 @@ constexpr float kSpring = 500.0f;
 constexpr float kDamping = 10.0f;
 constexpr float kShear = 1.0f;
 
-inline vec2 collidePair(vec2 posA, vec2 posB, vec2 velA, vec2 velB, float radiusA, float radiusB, float attraction)
+__host__ __device__ inline vec2 collidePair(vec2 posA, vec2 posB, vec2 velA, vec2 velB, float radiusA, float radiusB,
+                                            float attraction)
 {
     vec2 relPos = posB - posA;
     float dist = relPos.length();
