@@ -3,7 +3,17 @@
 #
 cmake_minimum_required (VERSION 3.8)
 
-project ("advect")
+project(advect CUDA CXX)
+
+if(NOT DEFINED CMAKE_CUDA_STANDARD)
+  set(CMAKE_CUDA_STANDARD 14)
+  set(CMAKE_CUDA_STANDARD_REQUIRED True)
+endif()
+
+if(NOT DEFINED CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 17)
+  set(CMAKE_CXX_STANDARD_REQUIRED True)
+endif()
 
 # Add ImGui here
 file(GLOB IMGUI_SOURCES imgui/*.cpp)

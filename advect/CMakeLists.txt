@@ -1,4 +1,4 @@
-﻿file(GLOB MY_SOURCES *.cpp *.c)
+﻿file(GLOB MY_SOURCES *.cpp *.c *.cu)
 file(GLOB MY_HEADERS *.h)
 
 find_package(Threads REQUIRED)

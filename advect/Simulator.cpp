@@ -7,6 +7,14 @@
 #include <algorithm>
 #include <cstring>
 
+Simulator::Simulator(BufferQueue &bufferQ) : bufferQueue(bufferQ)
+{
+}
+
+Simulator::~Simulator()
+{
+}
+
 void Simulator::onDequeueBuffer(std::shared_ptr<SimBuffer> newBuffer)
 {
     // This would have been nicer:
