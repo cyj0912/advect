@@ -34,18 +34,19 @@ void Simulator::onDequeueBuffer(std::shared_ptr<SimBuffer> newBuffer)
         {
             acceleration[i] += vec2{0.0f, -9.8f};
             vec2 &newPos = newBuffer->position[i];
-            newPos = oldBuffer->position[i] + velocity[i] * dt + 0.5f * acceleration[1] * dt * dt;
-            velocity[i] = velocity[i] + acceleration[1] * dt;
+            velocity[i] = velocity[i] + acceleration[i] * dt;
+            newPos = oldBuffer->position[i] + velocity[i] * dt;
 
             // Check outside boundary
+            float rdm = (i % 100) / 100.f * radius + radius;
             if (newPos.x > 1.0f)
-                newPos.x = 1.0f;
+                newPos.x = 1.0f - rdm;
             if (newPos.x < -1.0f)
-                newPos.x = -1.0f;
+                newPos.x = -1.0f + rdm;
             if (newPos.y > 1.0f)
-                newPos.y = 1.0f;
+                newPos.y = 1.0f - rdm;
             if (newPos.y < -1.0f)
-                newPos.y = -1.0f;
+                newPos.y = -1.0f + rdm;
         }
 
         // Collision, where N^2 algorithm is just infeasible
@@ -95,19 +96,11 @@ void Simulator::onDequeueBuffer(std::shared_ptr<SimBuffer> newBuffer)
                         int jj = gridList[j].second;
                         if (jj == i)
                             continue;
-                        vec2 atMe = pos - newBuffer->position[jj];
-                        float dist = atMe.length();
-                        if (dist == 0.0f)
-                            continue;
-                        if (dist < radius * 2.0f)
-                        {
-                            colCount++;
-                            acceleration[i] += kCollision * atMe / dist / dist;
-                        }
+                        auto force =
+                            collidePair(pos, newBuffer->position[jj], velocity[i], velocity[jj], radius, radius, 0.4f);
+                        acceleration[i] += force / mass;
                     }
                 }
-            // Apply damping
-            acceleration[i] -= (velocity[i] + acceleration[i] * dt) * kDamp;
             perfAvg += perfCount / (float)particleCount;
             colAvg += colCount / (float)particleCount;
         }
