@@ -61,4 +61,6 @@ private:
     std::vector<std::shared_ptr<ProfilerThread>> threads;
     bool showImGui = true;
     int rangeMs = 1000;
+    uint64_t lastRightNs = 0;
+    float refreshEvery = 1.0f;
 };

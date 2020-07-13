@@ -1,4 +1,5 @@
 #include "Profiler.h"
+#include <algorithm>
 #include <imgui.h>
 
 const std::chrono::high_resolution_clock::time_point Profiler::start = std::chrono::high_resolution_clock::now();
@@ -48,11 +49,17 @@ void Profiler::drawImGui()
     if (ImGui::Begin("Task Profiler", &showImGui))
     {
         ImGui::DragInt("Range MS", &rangeMs);
+        ImGui::DragFloat("Refresh every (second)", &refreshEvery, 0.05f, 0.1f, 10.0f);
+        uint64_t refreshNs = 1000000000.0 * refreshEvery;
 
         // Time scale: 1 ms = 1000 us = 1e6 ns
         // 50 ms = 5e7 ns
         uint64_t intervalMs = rangeMs;
         uint64_t rightNs = ProfilerThread::getNanoSeconds();
+        if (lastRightNs < refreshNs || rightNs > lastRightNs + refreshNs)
+            lastRightNs = rightNs;
+        else
+            rightNs = lastRightNs;
         if (intervalMs * 1000000 > rightNs)
             intervalMs = rightNs / 1000000;
         uint64_t leftNs = rightNs - intervalMs * 1000000;
@@ -104,7 +111,7 @@ void Profiler::drawImGui()
                         if (thread.ringBuffer[i].flags)
                         {
                             ImGui::SameLine(offset + begin);
-                            ImGui::Button("...", ImVec2(pxFromLeft - begin, 0));
+                            ImGui::Button("...", ImVec2(std::max(2.0f, pxFromLeft - begin), 0));
                         }
                         else
                         {
