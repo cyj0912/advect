@@ -14,7 +14,7 @@ class BufferQueue
 public:
     BufferQueue(App &aApp) : app(aApp) {}
 
-    void kickoff(int bufferCount = 2);
+    void kickoff(std::function<void(SimBuffer&)> fnInitBuffer, int bufferCount = 2);
 
     // Mutable side = producer
     void dequeueBufferCallback(std::function<void(std::shared_ptr<SimBuffer>)> callback);

@@ -5,13 +5,15 @@
  */
 
 #pragma once
-#include <memory>
-#include <vector>
 #include <cmath>
+#include <memory>
+#include <mutex>
+#include <vector>
 
 #ifndef __CUDACC__
 #define __host__
 #define __device__
+typedef struct cudaGraphicsResource *cudaGraphicsResource_t;
 #endif
 
 struct vec2
@@ -99,11 +101,17 @@ constexpr float radius = 1.0f / 256.f;
 constexpr float kCollision = 10.f;
 constexpr float kDamp = 20.f;
 
+extern std::mutex dxgiMutex;
+
 struct SimBuffer
 {
     vec2 position[particleCount];
-    vec2* cuPosition;
+    // TODO: release this
+    void *d3dBuffer;
+    cudaGraphicsResource_t cuResource;
 };
+
+void simulationStep(vec2 *devNewPos, vec2 *devOldPos);
 
 class BufferQueue;
 
@@ -112,8 +120,8 @@ class Simulator
 public:
     Simulator(BufferQueue &bufferQ);
 
-    Simulator(const Simulator&) = delete;
-    Simulator& operator=(const Simulator&) = delete;
+    Simulator(const Simulator &) = delete;
+    Simulator &operator=(const Simulator &) = delete;
 
     ~Simulator();
 
@@ -124,12 +132,12 @@ private:
     uint64_t currentFrame = 0;
     // Shared state
     std::shared_ptr<SimBuffer> oldBuffer;
+    cudaGraphicsResource_t oldCuResource = nullptr;
     // State
-    vec2 velocity[particleCount];
-    vec2 acceleration[particleCount];
+    vec2 velocity[particleCount]{0};
+    vec2 acceleration[particleCount]{0};
 
     // Temporary state
     std::vector<std::pair<uint32_t, uint32_t>> gridList;
     std::vector<int> cellStart;
 };
-

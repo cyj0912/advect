@@ -2,12 +2,17 @@
 file(GLOB MY_HEADERS *.h)
 
 find_package(Threads REQUIRED)
+find_package(CUDAToolkit REQUIRED)
 
 add_executable (advect ${MY_SOURCES} ${MY_HEADERS})
-target_link_libraries(advect d3d11 D3DCompiler)
+target_link_libraries(advect dxgi d3d11 D3DCompiler)
 target_link_libraries(advect imgui)
 target_link_libraries(advect glm)
 target_link_libraries(advect Threads::Threads)
+target_link_libraries(advect CUDA::cudart)
+
+# Set CUDA compute capability
+target_compile_options(advect PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-gencode arch=compute_35,code=sm_35>)
 
 # Copy shaders
 file(GLOB HLSL_SOURCES *.hlsl)

@@ -6,14 +6,13 @@
 #include "BufferQueue.h"
 #include <algorithm>
 #include <cstring>
+#include <cuda_runtime_api.h>
 
-Simulator::Simulator(BufferQueue &bufferQ) : bufferQueue(bufferQ)
-{
-}
+std::mutex dxgiMutex;
 
-Simulator::~Simulator()
-{
-}
+Simulator::Simulator(BufferQueue &bufferQ) : bufferQueue(bufferQ) {}
+
+Simulator::~Simulator() {}
 
 void Simulator::onDequeueBuffer(std::shared_ptr<SimBuffer> newBuffer)
 {
@@ -27,6 +26,22 @@ void Simulator::onDequeueBuffer(std::shared_ptr<SimBuffer> newBuffer)
     // Of course, C++ does not support await so this is implemented as a callback
 
     printf("Begin simulation frame %lld\n", currentFrame);
+    std::unique_lock<std::mutex> lk(dxgiMutex);
+    cudaGraphicsMapResources(1, &newBuffer->cuResource);
+    vec2 *newPos, *oldPos = nullptr;
+    size_t size;
+    cudaGraphicsResourceGetMappedPointer((void **)&newPos, &size, newBuffer->cuResource);
+    if (oldCuResource)
+        cudaGraphicsResourceGetMappedPointer((void **)&oldPos, &size, oldCuResource);
+    simulationStep(newPos, oldPos);
+    cudaGraphicsUnmapResources(1, &newBuffer->cuResource);
+
+    if (oldCuResource)
+        cudaGraphicsUnmapResources(1, &oldCuResource);
+    oldCuResource = newBuffer->cuResource;
+    cudaGraphicsMapResources(1, &oldCuResource);
+
+    /*
     if (currentFrame == 0)
     {
         gridList.resize(particleCount);
@@ -42,8 +57,8 @@ void Simulator::onDequeueBuffer(std::shared_ptr<SimBuffer> newBuffer)
         {
             acceleration[i] += vec2{0.0f, -9.8f};
             vec2 &newPos = newBuffer->position[i];
-            newPos = oldBuffer->position[i] + velocity[i] * dt + 0.5f * acceleration[1] * dt * dt;
             velocity[i] = velocity[i] + acceleration[1] * dt;
+            newPos = oldBuffer->position[i] + velocity[i] * dt;
 
             // Check outside boundary
             if (newPos.x > 1.0f)
@@ -122,6 +137,7 @@ void Simulator::onDequeueBuffer(std::shared_ptr<SimBuffer> newBuffer)
         printf("%f %f\n", perfAvg, colAvg);
     }
     oldBuffer = newBuffer;
+    */
     printf("End simulation frame %lld\n", currentFrame);
     currentFrame += 1;
     bufferQueue.queueBuffer(newBuffer);

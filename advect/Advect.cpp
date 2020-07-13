@@ -63,7 +63,8 @@ class AdvectApp : public App
     {
         bufferQueue.dequeueBufferCallback([this](auto buffer) { simulator.onDequeueBuffer(buffer); });
         bufferQueue.acquireBufferCallback([this](auto buffer) { renderer.onAcquireBuffer(buffer); });
-        bufferQueue.kickoff(2);
+        bufferQueue.kickoff([this](SimBuffer &buffer) { renderer.initBuffer(buffer); }, 2);
+        renderer.startRenderer();
         return true;
     }
 

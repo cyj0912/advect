@@ -6,6 +6,7 @@
 #include "BufferQueue.h"
 #include "Camera.h"
 #include "Renderer.h"
+#include <cuda_d3d11_interop.h>
 #include <d3d11_1.h>
 #include <d3dcompiler.h>
 #include <glm\gtc\type_ptr.hpp>
@@ -141,23 +142,30 @@ void CleanupDevice();
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 void Render();
 
+void Renderer::initBuffer(SimBuffer &buffer)
+{
+    ID3D11Buffer *d3dBuffer;
+    cudaGraphicsResource_t cuBuffer;
+    UINT sz = sizeof(buffer.position);
+    D3D11_BUFFER_DESC bufferDesc = {sz, D3D11_USAGE_DEFAULT, D3D11_BIND_VERTEX_BUFFER, 0, 0, 0};
+    g_pd3dDevice->CreateBuffer(&bufferDesc, nullptr, &d3dBuffer);
+    buffer.d3dBuffer = d3dBuffer;
+    cudaGraphicsD3D11RegisterResource(&cuBuffer, d3dBuffer, 0);
+    buffer.cuResource = cuBuffer;
+}
+
 void Renderer::onAcquireBuffer(std::shared_ptr<const SimBuffer> buffer)
 {
     printf("Begin renderer\n");
-    if (!g_pd3dDevice)
-    {
-        printf("Throwing away buffer\n");
-        bufferQueue.releaseBuffer(buffer);
-        return;
-    }
-    UINT sz = sizeof(buffer->position);
-    D3D11_BUFFER_DESC bufferDesc = {sz, D3D11_USAGE_DEFAULT, D3D11_BIND_VERTEX_BUFFER, 0, 0, 0};
-    D3D11_SUBRESOURCE_DATA initialData = {buffer->position, 0, 0};
-    auto *oldBuffer = g_pVertexBuffer3;
-    g_pd3dDevice->CreateBuffer(&bufferDesc, &initialData, &g_pVertexBuffer3);
+    // UINT sz = sizeof(buffer->position);
+    // D3D11_BUFFER_DESC bufferDesc = {sz, D3D11_USAGE_DEFAULT, D3D11_BIND_VERTEX_BUFFER, 0, 0, 0};
+    // D3D11_SUBRESOURCE_DATA initialData = {buffer->position, 0, 0};
+    // auto *oldBuffer = g_pVertexBuffer3;
+    // g_pd3dDevice->CreateBuffer(&bufferDesc, &initialData, &g_pVertexBuffer3);
     g_instanceCount = particleCount;
-    if (oldBuffer)
-        oldBuffer->Release();
+    // if (oldBuffer)
+    //     oldBuffer->Release();
+    g_pVertexBuffer3 = (ID3D11Buffer *)buffer->d3dBuffer;
     printf("End renderer\n");
     bufferQueue.releaseBuffer(buffer);
 }
@@ -192,6 +200,10 @@ int Renderer::renderThreadLoop()
     ImGui_ImplDX11_Init(g_pd3dDevice, g_pImmediateContext);
     profThread->endEvent("init");
 
+    spinOnMe = true;
+    while (!spinner2)
+        ;
+
     // Main message loop
     MSG msg = {0};
     while (WM_QUIT != msg.message)
@@ -206,12 +218,11 @@ int Renderer::renderThreadLoop()
         else
         {
             profThread->beginEvent("draw", ProfilerColor::DefaultBlue);
+            std::unique_lock<std::mutex> lk(dxgiMutex);
             // Start the Dear ImGui frame
             ImGui_ImplDX11_NewFrame();
             ImGui_ImplWin32_NewFrame();
             ImGui::NewFrame();
-
-            ImGui::ShowDemoWindow();
 
             globalProfiler.drawImGui();
 
@@ -327,6 +338,7 @@ HRESULT InitDevice()
 #endif
 
     D3D_DRIVER_TYPE driverTypes[] = {
+        D3D_DRIVER_TYPE_UNKNOWN,
         D3D_DRIVER_TYPE_HARDWARE,
         D3D_DRIVER_TYPE_WARP,
         D3D_DRIVER_TYPE_REFERENCE,
@@ -341,16 +353,31 @@ HRESULT InitDevice()
     };
     UINT numFeatureLevels = ARRAYSIZE(featureLevels);
 
+    IDXGIFactory1 *dxgiFactory = nullptr;
+    IDXGIAdapter *pAdapter = nullptr;
+    CreateDXGIFactory1(__uuidof(IDXGIFactory1), (void **)&dxgiFactory);
+
+    for (UINT i = 0; dxgiFactory->EnumAdapters(i, &pAdapter) != DXGI_ERROR_NOT_FOUND; ++i)
+    {
+        DXGI_ADAPTER_DESC desc;
+        pAdapter->GetDesc(&desc);
+        // Choose an NVIDIA card
+        if (desc.VendorId == 0x10de)
+            break;
+        pAdapter->Release();
+        pAdapter = nullptr;
+    }
+
     for (UINT driverTypeIndex = 0; driverTypeIndex < numDriverTypes; driverTypeIndex++)
     {
         g_driverType = driverTypes[driverTypeIndex];
-        hr = D3D11CreateDevice(nullptr, g_driverType, nullptr, createDeviceFlags, featureLevels, numFeatureLevels,
+        hr = D3D11CreateDevice(pAdapter, g_driverType, nullptr, createDeviceFlags, featureLevels, numFeatureLevels,
                                D3D11_SDK_VERSION, &g_pd3dDevice, &g_featureLevel, &g_pImmediateContext);
 
         if (hr == E_INVALIDARG)
         {
             // DirectX 11.0 platforms will not recognize D3D_FEATURE_LEVEL_11_1 so we need to retry without it
-            hr = D3D11CreateDevice(nullptr, g_driverType, nullptr, createDeviceFlags, &featureLevels[1],
+            hr = D3D11CreateDevice(pAdapter, g_driverType, nullptr, createDeviceFlags, &featureLevels[1],
                                    numFeatureLevels - 1, D3D11_SDK_VERSION, &g_pd3dDevice, &g_featureLevel,
                                    &g_pImmediateContext);
         }
@@ -362,7 +389,9 @@ HRESULT InitDevice()
         return hr;
 
     // Obtain DXGI factory from device (since we used nullptr for pAdapter above)
-    IDXGIFactory1 *dxgiFactory = nullptr;
+    pAdapter->Release();
+    dxgiFactory->Release();
+    dxgiFactory = nullptr;
     {
         IDXGIDevice *dxgiDevice = nullptr;
         hr = g_pd3dDevice->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void **>(&dxgiDevice));

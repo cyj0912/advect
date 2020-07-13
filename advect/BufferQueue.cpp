@@ -4,11 +4,12 @@
 
 #include "BufferQueue.h"
 
-void BufferQueue::kickoff(int bufferCount)
+void BufferQueue::kickoff(std::function<void(SimBuffer &)> fnInitBuffer, int bufferCount)
 {
     for (int i = 0; i < bufferCount; i++)
     {
         auto buffer = std::make_shared<SimBuffer>();
+        fnInitBuffer(*buffer);
         releaseBuffer(buffer);
     }
 }

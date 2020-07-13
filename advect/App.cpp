@@ -14,7 +14,7 @@ int App::run()
     // So conceptually, we are gonna have 1 or 2 worker threads. Two tasks, simulator and renderer, each has an input
     // queue associated. Both queues combined is call a BufferQueue
     std::vector<std::thread> workers;
-    for (int i = 1; i < 3; i++)
+    for (int i = 1; i < 1; i++)
     {
         workers.push_back(std::thread([this, i]() { workerThreadLoop(i); }));
     }
