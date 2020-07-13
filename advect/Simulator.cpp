@@ -61,14 +61,15 @@ void Simulator::onDequeueBuffer(std::shared_ptr<SimBuffer> newBuffer)
             newPos = oldBuffer->position[i] + velocity[i] * dt;
 
             // Check outside boundary
+            float rdm = (i % 100) / 100.f * radius + radius;
             if (newPos.x > 1.0f)
-                newPos.x = 1.0f;
+                newPos.x = 1.0f - rdm;
             if (newPos.x < -1.0f)
-                newPos.x = -1.0f;
+                newPos.x = -1.0f + rdm;
             if (newPos.y > 1.0f)
-                newPos.y = 1.0f;
+                newPos.y = 1.0f - rdm;
             if (newPos.y < -1.0f)
-                newPos.y = -1.0f;
+                newPos.y = -1.0f + rdm;
         }
 
         // Collision, where N^2 algorithm is just infeasible
@@ -118,19 +119,11 @@ void Simulator::onDequeueBuffer(std::shared_ptr<SimBuffer> newBuffer)
                         int jj = gridList[j].second;
                         if (jj == i)
                             continue;
-                        vec2 atMe = pos - newBuffer->position[jj];
-                        float dist = atMe.length();
-                        if (dist == 0.0f)
-                            continue;
-                        if (dist < radius * 2.0f)
-                        {
-                            colCount++;
-                            acceleration[i] += kCollision * atMe / dist / dist;
-                        }
+                        auto force =
+                            collidePair(pos, newBuffer->position[jj], velocity[i], velocity[jj], radius, radius, 0.4f);
+                        acceleration[i] += force / mass;
                     }
                 }
-            // Apply damping
-            acceleration[i] -= (velocity[i] + acceleration[i] * dt) * kDamp;
             perfAvg += perfCount / (float)particleCount;
             colAvg += colCount / (float)particleCount;
         }

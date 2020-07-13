@@ -50,6 +50,8 @@ struct vec2
     }
 
     __host__ __device__ float length() { return sqrtf(x * x + y * y); }
+
+    float dot(const vec2 &other) { return x * other.x + y * other.y; }
 };
 
 __host__ __device__ inline vec2 operator+(const vec2 &lhs, const vec2 &rhs)
@@ -102,6 +104,31 @@ constexpr float kCollision = 10.f;
 constexpr float kDamp = 20.f;
 
 extern std::mutex dxgiMutex;
+
+constexpr float kSpring = 500.0f;
+constexpr float kDamping = 10.0f;
+constexpr float kShear = 1.0f;
+
+inline vec2 collidePair(vec2 posA, vec2 posB, vec2 velA, vec2 velB, float radiusA, float radiusB, float attraction)
+{
+    vec2 relPos = posB - posA;
+    float dist = relPos.length();
+    float collideDist = radiusA + radiusB;
+    vec2 force = {0.0f, 0.0f};
+    if (dist == 0.0f)
+        return force;
+    if (dist < collideDist)
+    {
+        vec2 norm = relPos / dist;
+        vec2 relVel = velB - velA;
+        vec2 tanVel = relVel - (relVel.dot(norm) * norm);
+        force = kSpring * -(collideDist - dist) * norm;
+        force += kDamping * relVel;
+        force += kShear * tanVel;
+        force += attraction * relPos;
+    }
+    return force;
+}
 
 struct SimBuffer
 {
