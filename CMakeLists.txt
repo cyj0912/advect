@@ -12,6 +12,8 @@ if(NOT DEFINED CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD_REQUIRED True)
 endif()
 
+set(CMAKE_CUDA_ARCHITECTURES 35 50 72)
+
 # Add ImGui here
 file(GLOB IMGUI_SOURCES imgui/*.cpp)
 set(IMGUI_IMPL_SRC imgui/examples/imgui_impl_win32.cpp imgui/examples/imgui_impl_dx11.cpp)

@@ -11,9 +11,6 @@ target_link_libraries(advect glm)
 target_link_libraries(advect Threads::Threads)
 target_link_libraries(advect CUDA::cudart)
 
-# Set CUDA compute capability
-target_compile_options(advect PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-gencode arch=compute_35,code=sm_35>)
-
 # Copy shaders
 file(GLOB HLSL_SOURCES *.hlsl)
 add_custom_command(TARGET advect POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${HLSL_SOURCES} $<TARGET_FILE_DIR:advect>)
